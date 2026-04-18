@@ -5,7 +5,7 @@
 ## 功能概览
 
 - 支持 `arxiv.org/abs/...` 与 `arxiv.org/pdf/...` 形式的链接  
-- 输出列：`Year`、`Org.`、`Acronym`、`Paper`（标题 + 链接）、`Project`、`GitHub`（shields 徽章）、`Comments`  
+- 输出列：`Year`、`Org.`（**一作**单位）、`Acronym`（论文/项目**简称**）、`Paper`（标题 + 链接）、`Project`、`GitHub`（shields 徽章）、`Comments`  
 - 输入方式：命令行参数、或 `input.json` 中的 URL 列表  
 - 可选 **合并** 已有 `.md`：按 arXiv ID 去重，并按时间列 **重新排序**  
 
