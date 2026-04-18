@@ -1,0 +1,7 @@
+# 本地与密钥（勿提交）
+user.json
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
