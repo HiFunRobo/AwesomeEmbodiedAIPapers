@@ -5,7 +5,7 @@ Paper Collection Agent
 输入一篇或多篇论文链接（arXiv abs/pdf），输出与 ref.md 同格式的 Markdown 表格；
 可写入新文件或合并已有 .md，并按时间（Year 字段）排序。
 
-列语义（与 ref.md 一致）：
+表格列顺序：Year | Org. | Acronym | Paper | Project | GitHub | Comments
   - Org.：默认留空（可自行在表格中填写）。
   - Acronym：标题中首个半角「:」或全角「：」**之前**的整段文字（论文项目名/简称）；若无冒号，则由脚本根据标题启发式生成简称。
 
@@ -358,9 +358,9 @@ def collect_one(raw_input_url: str) -> dict:
     project_cell = format_project_badge(project) if project else ""
     github_cell = format_github_badge(github) if github else ""
 
-    # 与 ref.md 示例行一致：Year | Acronym | Org. | Paper | Project | GitHub | Comments
+    # 与表头一致：Year | Org. | Acronym | Paper | Project | GitHub | Comments
     row = (
-        f"|{year_month}| {acronym} |{org}| {paper_link} |{project_cell} |{github_cell} | |"
+        f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
     )
     return {
         "arxiv_id": arxiv_id,
