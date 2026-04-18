@@ -1,0 +1,5 @@
+|Year|Org.|Acronym|Paper|Project|GitHub|Comments|
+|----|----|-------|-----|-------|------|------|
+|2022.03| HOI4D |Tsinghua| [HOI4D: A 4D Egocentric Dataset for Category-Level Human-Object Interaction](https://arxiv.org/pdf/2203.01577) | |[![GitHub](https://img.shields.io/github/stars/HOI4D-Instructions)](https://github.com/leolyliu/HOI4D-Instructions) | |
+|2023.09| HoloAssist |Microsoft | [HoloAssist: an Egocentric Human Interaction Dataset for Interactive AI Assistants in the Real World](https://arxiv.org/abs/2309.17024) |[![link](https://img.shields.io/badge/Website-9cf)](https://holoassist.github.io/) |[![GitHub](https://img.shields.io/github/stars/Ember-HoloAssist/holoassist-release)](https://github.com/Ember-HoloAssist/holoassist-release) | |
+|2024.01| HOT3D |Meta| [Introducing HOT3D: An Egocentric Dataset for 3D Hand and Object Tracking](https://arxiv.org/abs/2406.09598) |[![link](https://img.shields.io/badge/Website-9cf)](https://www.projectaria.com/datasets/hot3D/)  | [![GitHub](https://img.shields.io/github/stars/facebookresearch/hot3d)](https://github.com/facebookresearch/hot3d) | |
