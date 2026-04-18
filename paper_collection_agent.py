@@ -6,8 +6,8 @@ Paper Collection Agent
 可写入新文件或合并已有 .md，并按时间（Year 字段）排序。
 
 列语义（与 ref.md 一致）：
-  - Org.：第一作者（一作）所在单位（高校、公司、实验室等），非通讯作者或其他作者。
-  - Acronym：论文常用简称 / 数据集或方法缩写（标题中项目名、括号内缩写等）。
+  - Org.：默认留空（可自行在表格中填写）。
+  - Acronym：标题中首个半角「:」或全角「：」**之前**的整段文字（论文项目名/简称）；若无冒号，则由脚本根据标题启发式生成简称。
 
 输入方式：
   - 命令行参数直接传入链接
@@ -102,105 +102,6 @@ def fetch_arxiv_api(arxiv_id: str) -> dict:
         "comment": comment,
         "authors": authors,
     }
-
-
-def fetch_first_author_org_openalex(title: str) -> str:
-    """OpenAlex 中 authorships 顺序与作者列表一致，仅取第一条 authorship 的机构。"""
-    try:
-        resp = requests.get(
-            "https://api.openalex.org/works",
-            params={"search": title[:120], "per-page": 1, "mailto": "paper-agent@localhost"},
-            headers=HEADERS,
-            timeout=20,
-        )
-        if resp.status_code != 200:
-            return ""
-        data = resp.json()
-        results = data.get("results", [])
-        if not results:
-            return ""
-        work = results[0]
-        found_title = (work.get("title") or "").lower()
-        if title.lower()[:30] not in found_title:
-            return ""
-        authorships = work.get("authorships") or []
-        if not authorships:
-            return ""
-        first = authorships[0]
-        institutions = first.get("institutions") or []
-        if institutions:
-            return institutions[0].get("display_name", "") or ""
-    except Exception:
-        pass
-    return ""
-
-
-def fetch_first_author_org_semantic_scholar(arxiv_id: str) -> str:
-    """Semantic Scholar：论文 authors 列表首位即一作，查其 affiliations。"""
-    base = "https://api.semanticscholar.org/graph/v1"
-    try:
-        pr = requests.get(
-            f"{base}/paper/arXiv:{arxiv_id}",
-            params={"fields": "authors"},
-            headers=HEADERS,
-            timeout=20,
-        )
-        if pr.status_code != 200:
-            return ""
-        pdata = pr.json()
-        authors = pdata.get("authors") or []
-        if not authors:
-            return ""
-        aid = authors[0].get("authorId")
-        if not aid:
-            return ""
-        time.sleep(0.25)
-        ar = requests.get(
-            f"{base}/author/{aid}",
-            params={"fields": "affiliations"},
-            headers=HEADERS,
-            timeout=15,
-        )
-        if ar.status_code != 200:
-            return ""
-        affs = ar.json().get("affiliations") or []
-        if affs:
-            a0 = affs[0]
-            if isinstance(a0, dict):
-                return (a0.get("name") or a0.get("text") or "").strip()
-            return str(a0).strip()
-    except Exception:
-        pass
-    return ""
-
-
-def scrape_arxiv_html_first_author_affiliation(arxiv_id: str) -> str:
-    """
-    从 arXiv HTML 版论文中抓取机构信息；多数排版下首个 affiliation 块对应一作单位。
-    """
-    url = f"https://arxiv.org/html/{arxiv_id}"
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=20)
-        if resp.status_code != 200:
-            return ""
-        soup = BeautifulSoup(resp.text, "html.parser")
-        for cls in ("ltx_role_affiliation", "ltx_affiliation", "author-info"):
-            tags = soup.find_all(class_=cls)
-            if tags:
-                text = tags[0].get_text(" ").strip()
-                text = re.sub(r"^[\d†‡*]+\s*", "", text).strip()
-                if len(text) > 3:
-                    return text
-        for tag in soup.find_all(True):
-            cls_str = " ".join(tag.get("class", []))
-            id_str = tag.get("id", "")
-            if "affil" in cls_str.lower() or "affil" in id_str.lower():
-                text = tag.get_text(" ").strip()
-                if 5 < len(text) < 200:
-                    return text
-    except Exception:
-        pass
-    return ""
 
 
 def scrape_arxiv_page(arxiv_id: str) -> dict:
@@ -353,86 +254,61 @@ def extract_links_from_comment(comment: str) -> dict:
     return {"github": github, "project": project}
 
 
-# 标题冒号前常见的非项目名词汇，跳过后再取疑似缩写
-_ACRONYM_SKIP_FIRST = frozenset(
-    {
-        "a",
-        "an",
-        "the",
-        "toward",
-        "towards",
-        "on",
-        "deep",
-        "introducing",
-    }
-)
+def split_title_at_colon(title: str) -> tuple[str, bool]:
+    """
+    按标题中首个半角 ':' 或全角 '：' 分割。
+    返回 (冒号前的文字, 是否包含冒号)。
+    """
+    m = re.search(r"[:：]", title)
+    if not m:
+        return title.strip(), False
+    return title[: m.start()].strip(), True
+
+
+def _acronym_fallback_no_colon(title: str) -> str:
+    """标题无冒号时：括号缩写 → 字母数字混合名 → CamelCase/全大写词 → 首词或前几词首字母。"""
+    t = title.strip()
+    if not t:
+        return ""
+
+    m = re.search(r"\(([A-Z][A-Z0-9\-]{1,15})\)", t)
+    if m:
+        return m.group(1)
+
+    m2 = re.search(r"\b([A-Z]{2,}\d+[A-Z0-9]*)\b", t)
+    if m2:
+        return m2.group(1)
+
+    for word in re.findall(r"[A-Z][a-z]+(?:[A-Z][a-z0-9]*)+|[A-Z][A-Z0-9]{2,}", t):
+        if len(word) >= 3:
+            return word
+
+    words = re.findall(r"[A-Za-z][a-zA-Z0-9\-]*", t)
+    if not words:
+        return t[:48].strip()
+
+    if len(words) == 1:
+        w = words[0]
+        return w if len(w) <= 24 else w[:24]
+
+    initials = "".join(w[0].upper() for w in words[:5])
+    if 2 <= len(initials) <= 10:
+        return initials
+
+    return words[0][:32]
 
 
 def infer_acronym(title: str) -> str:
     """
-    推断论文 / 数据集 / 方法的常用简称（Acronym）。
-    优先：括号内全大写缩写；冒号前项目名；标题中类 HOT3D/HOI4D 式混合缩写。
+    Acronym：有冒号时取冒号前整段（多空格压成单空格）；
+    无冒号时调用 _acronym_fallback_no_colon。
     """
-    m = re.search(r"\(([A-Z][A-Z0-9\-]{1,12})\)", title)
-    if m:
-        return m.group(1)
-
-    before_colon = title.split(":")[0].strip()
-    tokens = before_colon.split()
-    while tokens and tokens[0].lower() in _ACRONYM_SKIP_FIRST:
-        tokens = tokens[1:]
-    if tokens:
-        first = tokens[0]
-        if first.isupper() and len(first) >= 2:
-            return first
-        if re.match(r"^[A-Z][a-z]+(?:[A-Z][a-z0-9]*)+$", first) and len(first) >= 4:
-            return first
-        if re.match(r"^[A-Z][A-Z0-9\-]{2,}$", first):
-            return first
-
-    # e.g. "Introducing HOT3D: ..." — 跳过引导词后已在上方处理；全文扫描字母数字缩写
-    m2 = re.search(r"\b([A-Z]{2,}\d+[A-Z0-9]*)\b", title)
-    if m2:
-        return m2.group(1)
-    return ""
-
-
-def shorten_org(org: str) -> str:
-    if not org or not str(org).strip():
-        return ""
-    replacements = [
-        ("Massachusetts Institute of Technology", "MIT"),
-        ("Carnegie Mellon University", "CMU"),
-        ("Shanghai Artificial Intelligence Laboratory", "ShanghaiAI"),
-        ("Shanghai AI Laboratory", "ShanghaiAI"),
-        ("Stanford University", "Stanford"),
-        ("University of California", "UC"),
-        ("Tsinghua University", "Tsinghua"),
-        ("Peking University", "PKU"),
-        ("Zhejiang University", "ZJU"),
-        ("Fudan University", "Fudan"),
-        ("ETH Zurich", "ETH"),
-        ("Microsoft Research", "Microsoft"),
-        ("Google Research", "Google"),
-        ("Google DeepMind", "DeepMind"),
-        ("Meta AI", "Meta"),
-        ("Facebook AI Research", "Meta"),
-        ("Apple Inc", "Apple"),
-        ("NVIDIA", "NVIDIA"),
-        ("Samsung Research", "Samsung"),
-        ("ByteDance", "ByteDance"),
-        ("Baidu", "Baidu"),
-        ("Alibaba", "Alibaba"),
-        ("Tencent", "Tencent"),
-        ("Amazon", "Amazon"),
-        ("Adobe", "Adobe"),
-    ]
-    org_lower = org.lower()
-    for long, short in replacements:
-        if long.lower() in org_lower:
-            return short
-    org = re.sub(r"\s*\([^)]*\)\s*$", "", org).strip()
-    return org.split(",")[0].split(";")[0].strip()
+    before, has_colon = split_title_at_colon(title)
+    if has_colon and before:
+        return re.sub(r"\s+", " ", before).strip()
+    if has_colon and not before:
+        return _acronym_fallback_no_colon(title)
+    return _acronym_fallback_no_colon(title)
 
 
 def normalize_github_repo_url(url: str) -> str:
@@ -464,7 +340,6 @@ def collect_one(raw_input_url: str) -> dict:
     title = api_data["title"]
     year_month = api_data["year_month"]
     comment = api_data["comment"]
-    authors = api_data["authors"]
 
     comment_links = extract_links_from_comment(comment)
     page_links = scrape_arxiv_page(arxiv_id)
@@ -472,24 +347,8 @@ def collect_one(raw_input_url: str) -> dict:
     project = comment_links.get("project") or page_links.get("project")
     acronym = infer_acronym(title)
 
-    # Org.：仅一作（arXiv 作者列表第一位）所在单位
+    # Org.：默认留空（避免与 Acronym 混淆；可在生成的 md 中手工填写）
     org = ""
-    if authors:
-        aff0 = (authors[0].get("affiliation") or "").strip()
-        if aff0:
-            org = shorten_org(aff0)
-    if not org:
-        raw_affil = fetch_first_author_org_openalex(title)
-        if raw_affil:
-            org = shorten_org(raw_affil)
-    if not org:
-        raw_affil = fetch_first_author_org_semantic_scholar(arxiv_id)
-        if raw_affil:
-            org = shorten_org(raw_affil)
-    if not org:
-        raw_affil = scrape_arxiv_html_first_author_affiliation(arxiv_id)
-        if raw_affil:
-            org = shorten_org(raw_affil)
 
     if not github and project:
         github = scrape_project_page_for_github(project)
