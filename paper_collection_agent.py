@@ -301,13 +301,11 @@ def _acronym_fallback_no_colon(title: str) -> str:
 def infer_acronym(title: str) -> str:
     """
     Acronym：有冒号时取冒号前整段（多空格压成单空格）；
-    无冒号时调用 _acronym_fallback_no_colon。
+    无冒号或冒号前为空时由 _acronym_fallback_no_colon 总结。
     """
     before, has_colon = split_title_at_colon(title)
     if has_colon and before:
         return re.sub(r"\s+", " ", before).strip()
-    if has_colon and not before:
-        return _acronym_fallback_no_colon(title)
     return _acronym_fallback_no_colon(title)
 
 
