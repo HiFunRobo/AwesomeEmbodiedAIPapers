@@ -46,7 +46,7 @@ python paper_collection_agent.py https://arxiv.org/abs/2309.17024 -o my_papers.m
 
 ```bash
 # 使用 -i 指定列表文件
-python paper_collection_agent.py -i input.json -o ./collection_list/worldmodel.md
+python paper_collection_agent.py -i ./input/worldmodel.json -o ./collection_list/worldmodel.md
 ```
 
 `input.json` 支持以下两种结构之一：
