@@ -1,13 +1,16 @@
 # awesome_papers
 
-从 **arXiv** 论文链接自动抓取元数据（发表时间、机构、简称、项目页、GitHub 等），并输出为与 `ref.md` 约定一致的 **Markdown 表格**，便于维护个人论文清单。
+从 **arXiv** 论文链接或 **GitHub 仓库**链接自动抓取元数据（发表时间、机构、简称、项目页、GitHub 等），并输出为与 `ref.md` 约定一致的 **Markdown 表格**，便于维护个人论文清单。
 
 ## 功能概览
 
-- 支持 `arxiv.org/abs/...` 与 `arxiv.org/pdf/...` 形式的链接  
-- 输出列顺序：**`Year` | `Org.` | `Acronym` | `Paper` | `Project` | `GitHub` | `Comments`**（`Org.` 默认留空；`Acronym` 为标题首个 `:` / `：` **前**的整段文字，无冒号则脚本启发式生成）  
-- 输入方式：命令行参数、或 `input.json` 中的 URL 列表  
-- 可选 **合并** 已有 `.md`：按 arXiv ID 去重，并按时间列 **重新排序**  
+- 支持 **`arxiv.org/abs/...`** 与 **`arxiv.org/pdf/...`**  
+- 支持 **`https://github.com/<owner>/<repo>`** 仓库 URL（在仓库描述、homepage、README 中解析 arXiv；**GitHub** 列固定为所给仓库的 badge）  
+  - 若**未找到**关联论文：**`Paper`** 列留空；**`Year`** 取仓库创建时间的 `YYYY.MM`；**`Acronym`** 取仓库名；若有合法 homepage 可填 **Project**  
+  - 若找到 arXiv：**`Paper` / `Year` / `Acronym`** 等与 arXiv 流程一致（标题简称规则见下）  
+- 输出列顺序：**`Year` | `Org.` | `Acronym` | `Paper` | `Project` | `GitHub` | `Comments`**（`Org.` 默认留空；有论文时 `Acronym` 为标题首个 `:` / `：` **前**的整段文字，无冒号则脚本启发式生成）  
+- 输入方式：命令行参数、或 JSON 文件中的 URL 列表  
+- 可选 **合并** 已有 `.md`：按 **arXiv ID** 或 **GitHub `owner/repo`** 去重，并按时间列 **重新排序**  
 
 ## 环境要求
 
@@ -38,6 +41,9 @@ python paper_collection_agent.py \
   https://arxiv.org/pdf/2203.01577 \
   https://arxiv.org/abs/2406.09598
 
+# GitHub 仓库（从 README 等解析 arXiv；解析不到则 Paper 为空）
+python paper_collection_agent.py https://github.com/InternRobotics/InternDataEngine -o collection_list/simgen.md
+
 # 指定输出文件（默认不写则为 papers_collection.md）
 python paper_collection_agent.py https://arxiv.org/abs/2309.17024 -o my_papers.md
 ```
@@ -47,15 +53,19 @@ python paper_collection_agent.py https://arxiv.org/abs/2309.17024 -o my_papers.m
 ```bash
 # 使用 -i 指定列表文件
 python paper_collection_agent.py -i ./input/worldmodel.json -o ./collection_list/worldmodel.md
+
+# SimGen 等专题列表（仓库内示例）
+python paper_collection_agent.py -i ./input/simgen.json -o ./collection_list/simgen.md
 ```
 
-`input.json` 支持以下两种结构之一：
+JSON 支持以下两种结构之一（链接可为 arXiv 或 GitHub 仓库 URL）：
 
 ```json
 {
   "papers": [
     "https://arxiv.org/pdf/2203.01577",
-    "https://arxiv.org/abs/2309.17024"
+    "https://arxiv.org/abs/2309.17024",
+    "https://github.com/owner/repo"
   ]
 }
 ```
@@ -68,12 +78,12 @@ python paper_collection_agent.py -i ./input/worldmodel.json -o ./collection_list
 ]
 ```
 
-若 **未传任何 URL** 且 **未使用 `-i`**，脚本会尝试读取与本脚本同目录下的默认文件 **`input.json`**（若存在）。
+若 **未传任何 URL** 且 **未使用 `-i`**，脚本会尝试读取默认文件 **`input/simgen.json`**（相对于脚本所在目录，若存在）。
 
 ### 合并已有 Markdown 并排序
 
 ```bash
-# 将新论文合并进已有表格：同 arXiv ID 以本次结果为准，全文按 Year 升序
+# 将新论文合并进已有表格：同 arXiv ID 或同 GitHub 仓库以本次结果为准，全文按 Year 升序
 python paper_collection_agent.py https://arxiv.org/abs/2401.08399 -o ref.md --merge
 
 # 时间降序（新 → 旧）
@@ -84,7 +94,7 @@ python paper_collection_agent.py https://arxiv.org/abs/2401.08399 -o ref.md --me
 
 | 参数 | 说明 |
 |------|------|
-| `urls` | 零个或多个 arXiv 链接（位置参数） |
+| `urls` | 零个或多个链接：arXiv（abs/pdf）或 GitHub 仓库 URL（位置参数） |
 | `-i`, `--input-json` | 从 JSON 文件读取链接列表 |
 | `-o`, `--output` | 输出 Markdown 路径（默认：`papers_collection.md`） |
 | `--merge` | 若 `-o` 指向的文件已存在且含合法表头，则合并后再排序 |
@@ -105,7 +115,7 @@ python paper_collection_agent.py -h
 |----|----|-------|-----|-------|------|------|
 ```
 
-自动抓取字段可能不完整（如机构、项目页、GitHub），对应单元格会留空，可事后手工补全。
+自动抓取字段可能不完整（如机构、项目页、GitHub），对应单元格会留空，可事后手工补全。仅 GitHub 输入且未解析到 arXiv 时，**`Paper`** 列会刻意留空。
 
 ## collection_list 变更 → 自动推送到 GitHub
 
@@ -147,7 +157,7 @@ python collection_git_sync_agent.py
 
 ## 说明与限制
 
-- 依赖 **arXiv API**、**OpenAlex**、页面解析及 **GitHub** 公开接口；请保证网络可访问，必要时重试（arXiv 偶发超时）。  
+- 依赖 **arXiv API**、页面解析及 **GitHub** 公开 API；请保证网络可访问，必要时重试（arXiv 偶发超时）。未认证的 GitHub API 有速率限制，批量运行时可考虑配置 Token（脚本未内置，需自行在环境中注入请求头）。  
 - `Org.`、`Project`、`GitHub` 等为启发式推断，不保证与论文主页完全一致，重要条目建议人工核对。  
 - **请勿**将账号密码、Token 提交到 Git；若曾将含密钥的 `user.json` 提交过，请轮换密钥并从历史中移除敏感文件。  
 
