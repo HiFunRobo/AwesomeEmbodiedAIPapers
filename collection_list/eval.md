@@ -1,0 +1,6 @@
+|Year|Org.|Acronym|Paper|Project|GitHub|Comments|
+|----|----|-------|-----|-------|------|------|
+|2025.05|  | WorldGym | [WorldGym: World Model as An Environment for Policy Evaluation](https://arxiv.org/abs/2506.00613) |[![link](https://img.shields.io/badge/Website-9cf)](https://world-model-eval.github.io) |[![GitHub](https://img.shields.io/github/stars/simon-yoo/Syoo122122.github.worldgym)](https://github.com/simon-yoo/Syoo122122.github.worldgym) | |
+|2025.05|  | WorldEval | [WorldEval: World Model as Real-World Robot Policies Evaluator](https://arxiv.org/abs/2505.19017) |[![link](https://img.shields.io/badge/Website-9cf)](https://worldeval.github.io) |[![GitHub](https://img.shields.io/github/stars/liyaxuanliyaxuan/Worldeval)](https://github.com/liyaxuanliyaxuan/Worldeval) | |
+|2025.11|  | SPEWV | [Scalable Policy Evaluation with Video World Models](https://arxiv.org/abs/2511.11520) | | | |
+|2026.03|  | IWSFR | [Interactive World Simulator for Robot Policy Training and Evaluation](https://arxiv.org/abs/2603.08546) |[![link](https://img.shields.io/badge/Website-9cf)](https://yixuanwang.me/interactive_world_sim) |[![GitHub](https://img.shields.io/github/stars/WangYixuan12/interactive_world_sim)](https://github.com/WangYixuan12/interactive_world_sim) | |
