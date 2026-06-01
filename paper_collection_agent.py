@@ -37,7 +37,12 @@ from xml.etree import ElementTree as ET
 import requests
 from bs4 import BeautifulSoup
 
-HEADERS = {"User-Agent": "PaperCollectionAgent/1.0 (research tool)"}
+HEADERS = {"User-Agent": "PaperCollectionAgent/1.0 (mailto:research@example.com)"}
+
+# arXiv API 建议请求间隔 ≥3s；429 时指数退避重试
+ARXIV_MIN_INTERVAL_SEC = 3.0
+ARXIV_MAX_RETRIES = 5
+_last_arxiv_request_ts = 0.0
 
 # 与 ref.md 一致的表头与分隔行
 TABLE_HEADER = (
@@ -163,29 +168,36 @@ def paper_url_for_row(arxiv_id: str, original: str) -> str:
 # Fetch metadata (arXiv + OpenAlex + scrape)
 # ---------------------------------------------------------------------------
 
-def fetch_arxiv_api(arxiv_id: str) -> dict:
-    url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
-    resp = requests.get(url, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
-    root = ET.fromstring(resp.text)
-    entry = root.find("atom:entry", ns)
-    if entry is None:
-        raise ValueError(f"arXiv API returned no entry for id={arxiv_id}")
+def _arxiv_throttle() -> None:
+    """Respect arXiv API rate limits (≥3s between requests)."""
+    global _last_arxiv_request_ts
+    elapsed = time.time() - _last_arxiv_request_ts
+    if elapsed < ARXIV_MIN_INTERVAL_SEC:
+        time.sleep(ARXIV_MIN_INTERVAL_SEC - elapsed)
+    _last_arxiv_request_ts = time.time()
 
-    title = entry.find("atom:title", ns).text.strip().replace("\n", " ")
-    title = re.sub(r"\s+", " ", title)
-    published = entry.find("atom:published", ns).text
-    year_month = published[:7].replace("-", ".")
+
+def _parse_arxiv_api_entry(entry: ET.Element, arxiv_id: str) -> dict:
+    ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+    title_el = entry.find("atom:title", ns)
+    if title_el is None or not title_el.text:
+        raise ValueError(f"arXiv API entry missing title for id={arxiv_id}")
+
+    title = re.sub(r"\s+", " ", title_el.text.strip().replace("\n", " "))
+    published_el = entry.find("atom:published", ns)
+    published = published_el.text if published_el is not None else ""
+    year_month = published[:7].replace("-", ".") if len(published) >= 7 else "9999.99"
     comment_el = entry.find("arxiv:comment", ns)
-    comment = comment_el.text.strip() if comment_el is not None else ""
+    comment = comment_el.text.strip() if comment_el is not None and comment_el.text else ""
 
     authors = []
     for author_el in entry.findall("atom:author", ns):
-        name = author_el.find("atom:name", ns).text
+        name_el = author_el.find("atom:name", ns)
+        if name_el is None or not name_el.text:
+            continue
         affil_el = author_el.find("arxiv:affiliation", ns)
-        affil = affil_el.text.strip() if affil_el is not None else ""
-        authors.append({"name": name, "affiliation": affil})
+        affil = affil_el.text.strip() if affil_el is not None and affil_el.text else ""
+        authors.append({"name": name_el.text.strip(), "affiliation": affil})
 
     return {
         "title": title,
@@ -195,10 +207,97 @@ def fetch_arxiv_api(arxiv_id: str) -> dict:
     }
 
 
+def fetch_arxiv_from_html(arxiv_id: str) -> dict:
+    """Fallback: parse metadata from arxiv.org/abs page when API is rate-limited."""
+    url = f"https://arxiv.org/abs/{arxiv_id}"
+    _arxiv_throttle()
+    resp = requests.get(url, headers=HEADERS, timeout=30)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    title_el = soup.find("h1", class_="title")
+    if not title_el:
+        raise ValueError(f"Could not parse title from abs page for id={arxiv_id}")
+    title = re.sub(r"\s+", " ", title_el.get_text(" ", strip=True))
+    title = re.sub(r"^Title:\s*", "", title, flags=re.I).strip()
+
+    year_month = "9999.99"
+    for meta_name in ("citation_date", "citation_online_date", "citation_publication_date"):
+        meta = soup.find("meta", attrs={"name": meta_name})
+        if meta and meta.get("content"):
+            content = meta["content"].strip()
+            if len(content) >= 7 and content[4] == "-":
+                year_month = content[:7].replace("-", ".")
+                break
+            if len(content) >= 4 and content[:4].isdigit():
+                year_month = f"{content[:4]}.01"
+                break
+
+    comment = ""
+    for block in soup.find_all("blockquote"):
+        text = block.get_text(" ", strip=True)
+        if text:
+            comment = text
+            break
+
+    authors = []
+    authors_el = soup.find("div", class_="authors")
+    if authors_el:
+        for a in authors_el.find_all("a"):
+            name = a.get_text(strip=True)
+            if name:
+                authors.append({"name": name, "affiliation": ""})
+
+    return {
+        "title": title,
+        "year_month": year_month,
+        "comment": comment,
+        "authors": authors,
+    }
+
+
+def fetch_arxiv_api(arxiv_id: str) -> dict:
+    url = f"https://export.arxiv.org/api/query?id_list={arxiv_id}"
+    last_err: Optional[Exception] = None
+
+    for attempt in range(ARXIV_MAX_RETRIES):
+        _arxiv_throttle()
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=30)
+            if resp.status_code == 429:
+                wait = ARXIV_MIN_INTERVAL_SEC * (2**attempt)
+                print(f"    arXiv API 429，{wait:.0f}s 后重试 ({attempt + 1}/{ARXIV_MAX_RETRIES})…")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+
+            ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
+            root = ET.fromstring(resp.text)
+            entry = root.find("atom:entry", ns)
+            if entry is None:
+                raise ValueError(f"arXiv API returned no entry for id={arxiv_id}")
+            return _parse_arxiv_api_entry(entry, arxiv_id)
+        except requests.HTTPError as e:
+            last_err = e
+            if e.response is not None and e.response.status_code == 429:
+                wait = ARXIV_MIN_INTERVAL_SEC * (2**attempt)
+                print(f"    arXiv API 429，{wait:.0f}s 后重试 ({attempt + 1}/{ARXIV_MAX_RETRIES})…")
+                time.sleep(wait)
+                continue
+            break
+        except Exception as e:
+            last_err = e
+            break
+
+    print(f"    arXiv API 不可用 ({last_err})，改用 abs 页面解析…")
+    return fetch_arxiv_from_html(arxiv_id)
+
+
 def scrape_arxiv_page(arxiv_id: str) -> dict:
     url = f"https://arxiv.org/abs/{arxiv_id}"
     github = project = None
     try:
+        _arxiv_throttle()
         resp = requests.get(url, headers=HEADERS, timeout=30)
         soup = BeautifulSoup(resp.text, "html.parser")
     except Exception:
