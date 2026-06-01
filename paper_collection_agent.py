@@ -342,7 +342,8 @@ def fetch_arxiv_metadata(arxiv_id: str, *, use_api: bool = False) -> dict:
     if use_api:
         try:
             data = fetch_arxiv_api(arxiv_id)
-            links = fetch_arxiv_from_abs(arxiv_id)
+            soup = _fetch_abs_soup(arxiv_id)
+            links = _extract_links_from_abs_soup(soup)
             data["github"] = links["github"]
             data["project"] = links["project"]
             return data
@@ -562,7 +563,7 @@ def collect_one(raw_input_url: str, *, use_api: bool = False) -> dict:
     }
 
 
-def collect_from_github(raw_input_url: str) -> dict:
+def collect_from_github(raw_input_url: str, *, use_api: bool = False) -> dict:
     """
     GitHub 仓库 URL：从描述 / homepage / README 解析 arXiv；
     若找到论文则 Paper 等与 arXiv 行一致（GitHub 列固定为当前仓库）；
@@ -589,15 +590,14 @@ def collect_from_github(raw_input_url: str) -> dict:
     row_key = f"gh:{github_row_key(owner, repo_name)}"
 
     if arxiv_id:
-        api_data = fetch_arxiv_api(arxiv_id)
-        title = api_data["title"]
-        year_month = api_data["year_month"]
-        comment = api_data["comment"]
+        meta = fetch_arxiv_metadata(arxiv_id, use_api=use_api)
+        title = meta["title"]
+        year_month = meta["year_month"]
+        comment = meta["comment"]
         acronym = infer_acronym(title)
 
         comment_links = extract_links_from_comment(comment)
-        page_links = scrape_arxiv_page(arxiv_id)
-        project = comment_links.get("project") or page_links.get("project")
+        project = comment_links.get("project") or meta.get("project")
         if not project and homepage:
             hp = homepage.rstrip("/")
             if (
@@ -635,11 +635,11 @@ def collect_from_github(raw_input_url: str) -> dict:
     return {"row_id": row_key, "year_month": year_month, "row": row}
 
 
-def collect_entry(raw_input_url: str) -> dict:
+def collect_entry(raw_input_url: str, *, use_api: bool = False) -> dict:
     """根据 URL 类型分发：GitHub 仓库或 arXiv。"""
     if parse_github_repo_url(raw_input_url):
-        return collect_from_github(raw_input_url)
-    return collect_one(raw_input_url)
+        return collect_from_github(raw_input_url, use_api=use_api)
+    return collect_one(raw_input_url, use_api=use_api)
 
 
 # ---------------------------------------------------------------------------
@@ -779,6 +779,11 @@ def main() -> None:
         action="store_true",
         help="按时间降序排序（默认升序：从早到晚）",
     )
+    parser.add_argument(
+        "--use-arxiv-api",
+        action="store_true",
+        help="优先使用 export.arxiv.org API（默认仅解析 abs 页面，更稳定）",
+    )
     args = parser.parse_args()
 
     urls: list[str] = []
@@ -807,7 +812,7 @@ def main() -> None:
     for raw in uniq_urls:
         print(f"[•] {raw}")
         try:
-            entries.append(collect_entry(raw))
+            entries.append(collect_entry(raw, use_api=args.use_arxiv_api))
         except Exception as e:
             print(f"    失败: {e}", file=sys.stderr)
 
