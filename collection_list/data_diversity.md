@@ -1,0 +1,6 @@
+|Year|Org.|Acronym|Paper|Project|GitHub|Comments|
+|----|----|-------|-----|-------|------|------|
+|2023.07|  | DTGGI | [Decomposing the Generalization Gap in Imitation Learning for Visual Robotic Manipulation](https://arxiv.org/abs/2307.03659) |[![link](https://img.shields.io/badge/Website-9cf)](https://sites.google.com/view/generalization-gap) | | |
+|2024.02|  | THE COLOSSEUM | [THE COLOSSEUM: A Benchmark for Evaluating Generalization for Robotic Manipulation](https://arxiv.org/abs/2402.08191) |[![link](https://img.shields.io/badge/Website-9cf)](https://robot-colosseum.github.io) |[![GitHub](https://img.shields.io/github/stars/robot-colosseum/robot-colosseum)](https://github.com/robot-colosseum/robot-colosseum) | |
+|2024.03|  | EDCFR | [Efficient Data Collection for Robotic Manipulation via Compositional Generalization](https://arxiv.org/abs/2403.05110) | | | |
+|2025.05|  | GDCVF | [Guiding Data Collection via Factored Scaling Curves](https://arxiv.org/abs/2505.07728) |[![link](https://img.shields.io/badge/Website-9cf)](https://factored-data-scaling.github.io) |[![GitHub](https://img.shields.io/github/stars/irom-princeton/factored-scaling-curves)](https://github.com/irom-princeton/factored-scaling-curves) | |
