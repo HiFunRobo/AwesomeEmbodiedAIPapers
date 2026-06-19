@@ -1,0 +1,7 @@
+|Year|Org.|Acronym|Paper|Project|GitHub|Comments|
+|----|----|-------|-----|-------|------|------|
+|2025.03|  | Phantom | [Phantom: Training Robots Without Robots Using Only Human Videos](https://arxiv.org/abs/2503.00779) |[![link](https://img.shields.io/badge/Website-9cf)](https://phantom-human-videos.github.io) |[![GitHub](https://img.shields.io/github/stars/MarionLepert/phantom)](https://github.com/MarionLepert/phantom) | |
+|2026.04|  | EgoLive | [EgoLive: A Large-Scale Egocentric Dataset from Real-World Human Tasks](https://arxiv.org/abs/2604.23570) | |[![GitHub](https://img.shields.io/github/stars/aurolive6/egolive)](https://github.com/aurolive6/egolive) | |
+|2026.06|  | HumanScale | [HumanScale: Egocentric Human Video Can Outperform Real-Robot Data for Embodied Pretraining](https://arxiv.org/abs/2606.20521) | |[![GitHub](https://img.shields.io/github/stars/DAGroup-PKU/HumanNet)](https://github.com/DAGroup-PKU/HumanNet) | |
+|2026.06|  | ACE-Ego-0 | [ACE-Ego-0: Unifying Egocentric Human and Robotic Data for VLA Pretraining](https://arxiv.org/abs/2606.17200) | | | |
+|2026.06|  | EgoInfinity | [EgoInfinity: A Web-Scale 4D Hand-Object Interaction Data Engine for Any-View Robot Retargeting and Video-to-Action Robot Learning](https://arxiv.org/abs/2606.17385) |[![link](https://img.shields.io/badge/Website-9cf)](https://huggingface.co/spaces/Rice-RobotPI-Lab/EgoInfinity) |[![GitHub](https://img.shields.io/github/stars/Rice-RobotPI-Lab/EgoInfinity)](https://github.com/Rice-RobotPI-Lab/EgoInfinity) | |
