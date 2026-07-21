@@ -73,6 +73,27 @@ def normalize_url(url: str) -> str:
     return u.lower()
 
 
+def escape_table_cell(text: str) -> str:
+    """Markdown 表格单元格内转义竖线，避免破坏列解析。"""
+    return text.replace("|", "\\|")
+
+
+def format_table_row(
+    year_month: str,
+    org: str,
+    acronym: str,
+    paper_link: str,
+    *,
+    project_cell: str = "",
+    github_cell: str = "",
+    comments: str = "",
+) -> str:
+    return (
+        f"|{year_month}| {escape_table_cell(org)} | {escape_table_cell(acronym)} "
+        f"| {paper_link} |{project_cell} |{github_cell} | {escape_table_cell(comments)}|"
+    )
+
+
 def parse_arxiv_id(raw: str) -> Optional[str]:
     patterns = [
         r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})(?:\.pdf)?",
@@ -577,13 +598,14 @@ def collect_one(
             github = search_github(acronym, title, project_url=project)
 
     paper_href = paper_url_for_row(arxiv_id, raw_input_url)
-    paper_link = f"[{title}]({paper_href})"
+    paper_link = f"[{escape_table_cell(title)}]({paper_href})"
     project_cell = format_project_badge(project) if project else ""
     github_cell = format_github_badge(github) if github else ""
 
     # 与表头一致：Year | Org. | Acronym | Paper | Project | GitHub | Comments
-    row = (
-        f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
+    row = format_table_row(
+        year_month, org, acronym, paper_link,
+        project_cell=project_cell, github_cell=github_cell,
     )
     return {
         "row_id": f"arxiv:{arxiv_id}",
@@ -642,10 +664,11 @@ def collect_from_github(
                 project = hp
 
         paper_href = f"https://arxiv.org/abs/{arxiv_id}"
-        paper_link = f"[{title}]({paper_href})"
+        paper_link = f"[{escape_table_cell(title)}]({paper_href})"
         project_cell = format_project_badge(project) if project else ""
-        row = (
-            f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
+        row = format_table_row(
+            year_month, org, acronym, paper_link,
+            project_cell=project_cell, github_cell=github_cell,
         )
         return {"row_id": row_key, "year_month": year_month, "row": row}
 
@@ -664,8 +687,11 @@ def collect_from_github(
             if normalize_github_repo_url(hp) != user_github:
                 project_cell = format_project_badge(hp)
 
-    paper_link = f"[{repo_name}]({user_github})"
-    row = f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
+    paper_link = f"[{escape_table_cell(repo_name)}]({user_github})"
+    row = format_table_row(
+        year_month, org, acronym, paper_link,
+        project_cell=project_cell, github_cell=github_cell,
+    )
     return {"row_id": row_key, "year_month": year_month, "row": row}
 
 
@@ -707,10 +733,8 @@ def collect_from_web_url(raw_input_url: str) -> dict:
     # 普通网页：Project / GitHub 无法可靠推断时留空（Paper 列保留原始 URL）
     project_cell = ""
     github_cell = ""
-    paper_link = f"[{title}]({url})"
-    row = (
-        f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
-    )
+    paper_link = f"[{escape_table_cell(title)}]({url})"
+    row = format_table_row(year_month, org, acronym, paper_link)
     return {
         "row_id": f"url:{normalize_url(url)}",
         "year_month": year_month,
@@ -747,15 +771,13 @@ def arxiv_id_from_markdown_row(row_line: str) -> Optional[str]:
 
 
 def paper_href_from_markdown_row(row_line: str) -> Optional[str]:
-    """从 Paper 列（首个 markdown 链接）提取 href。"""
-    parts = row_line.split("|")
-    if len(parts) >= 5:
-        paper_col = parts[4]
-    else:
-        paper_col = row_line
-    m = re.search(r"\[[^\]]*\]\(([^)]+)\)", paper_col)
-    if m:
-        return m.group(1).strip()
+    """从 Paper 列提取 href（跳过 badge 链接；兼容标题中含 | 的行）。"""
+    for m in re.finditer(r"\[([^\]]*)\]\(([^)]+)\)", row_line):
+        href = m.group(2).strip()
+        if "img.shields.io" in href:
+            continue
+        if href.startswith("http"):
+            return href
     return None
 
 
@@ -868,9 +890,9 @@ def merge_and_sort(
         by_id[ent["row_id"]] = ent["row"]
 
     def row_year(line: str) -> tuple:
-        parts = line.split("|")
-        if len(parts) >= 2:
-            return parse_year_sort_key(parts[1])
+        m = re.match(r"^\|([^|]+)\|", line.strip())
+        if m:
+            return parse_year_sort_key(m.group(1))
         return (9999, 99)
 
     merged_lines = list(by_id.values())

@@ -6,5 +6,4 @@
 |2025.11|  | SPEWV | [Scalable Policy Evaluation with Video World Models](https://arxiv.org/abs/2511.11520) | | | |
 |2026.03|  | IWSFR | [Interactive World Simulator for Robot Policy Training and Evaluation](https://arxiv.org/abs/2603.08546) | | | |
 |2026.04|  | LARY | [LARY: A Latent Action Representation Yielding Benchmark for Generalizable Vision-to-Action Alignment](https://arxiv.org/html/2604.11689v1) |[![link](https://img.shields.io/badge/Website-9cf)](https://meituan-longcat.github.io/LARYBench) |[![GitHub](https://img.shields.io/github/stars/meituan-longcat/LARYBench)](https://github.com/meituan-longcat/LARYBench) | |
-|9999.99|  | RRARP | [Runway Research | Accelerating Robot Policy Evaluation with General World Models](https://runwayml.com/research/accelerating-robot-policy-evaluation) | | | |
-|9999.99|  | RRARP | [Runway Research | Accelerating Robot Policy Evaluation with General World Models](https://runwayml.com/research/accelerating-robot-policy-evaluation) | | | |
+|9999.99|  | RRARP | [Runway Research \| Accelerating Robot Policy Evaluation with General World Models](https://runwayml.com/research/accelerating-robot-policy-evaluation) | | | |
