@@ -683,8 +683,7 @@ def _title_from_html(soup: BeautifulSoup) -> str:
 
 def collect_from_web_url(raw_input_url: str) -> dict:
     """
-    非 arXiv / 非 GitHub 的普通网页：抓取标题与页内链接；
-    Project / GitHub 找不到则留空；Paper 列链接到原始 URL。
+    非 arXiv / 非 GitHub 的普通网页：抓取标题；Project / GitHub 留空；Paper 列链接到原始 URL。
     """
     url = raw_input_url.strip()
     resp = requests.get(url, headers=HEADERS, timeout=25)
@@ -708,6 +707,7 @@ def collect_from_web_url(raw_input_url: str) -> dict:
     # 普通网页：Project / GitHub 无法可靠推断时留空（Paper 列保留原始 URL）
     project_cell = ""
     github_cell = ""
+    paper_link = f"[{title}]({url})"
     row = (
         f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
     )
