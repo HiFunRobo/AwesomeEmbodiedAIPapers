@@ -1011,14 +1011,18 @@ def run_all_mode(
     for json_path in json_files:
         md_path = output_dir / f"{json_path.stem}.md"
         print(f"\n=== {json_path.name} → {md_path.name} ===")
-        skipped, added, rows = process_json_file(
-            json_path,
-            md_path,
-            merge=merge,
-            sort_asc=sort_asc,
-            use_api=use_api,
-            github_search=github_search,
-        )
+        try:
+            skipped, added, rows = process_json_file(
+                json_path,
+                md_path,
+                merge=merge,
+                sort_asc=sort_asc,
+                use_api=use_api,
+                github_search=github_search,
+            )
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"  [✗] 跳过（JSON 无效）: {e}", file=sys.stderr)
+            continue
         if added:
             print(f"  [✓] 新增 {added} 条，跳过 {skipped} 条，表格共 {rows} 行")
         elif skipped and rows:
