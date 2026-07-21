@@ -693,12 +693,6 @@ def collect_from_web_url(raw_input_url: str) -> dict:
     title = _title_from_html(soup) or url
     acronym = infer_acronym(title)
 
-    links = _extract_links_from_abs_soup(soup)
-    github = links.get("github")
-    project = links.get("project")
-    if project and normalize_url(project) == normalize_url(url):
-        project = None
-
     org = ""
     year_month = "9999.99"
     for meta_name in ("article:published_time", "citation_publication_date", "date"):
@@ -711,9 +705,9 @@ def collect_from_web_url(raw_input_url: str) -> dict:
                 year_month = content[:7].replace("-", ".")
                 break
 
-    paper_link = f"[{title}]({url})"
-    project_cell = format_project_badge(project) if project else ""
-    github_cell = format_github_badge(github) if github else ""
+    # 普通网页：Project / GitHub 无法可靠推断时留空（Paper 列保留原始 URL）
+    project_cell = ""
+    github_cell = ""
     row = (
         f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
     )
@@ -859,12 +853,16 @@ def merge_and_sort(
         aid = arxiv_id_from_markdown_row(ln)
         if aid:
             by_id[f"arxiv:{aid}"] = ln
-        else:
-            ghk = github_repo_key_from_markdown_row(ln)
-            if ghk:
-                by_id[f"gh:{ghk}"] = ln
-            else:
-                by_id[f"__anon_{hash(ln)}"] = ln
+            continue
+        ghk = github_repo_key_from_markdown_row(ln)
+        if ghk:
+            by_id[f"gh:{ghk}"] = ln
+            continue
+        href = paper_href_from_markdown_row(ln)
+        if href:
+            by_id[f"url:{normalize_url(href)}"] = ln
+            continue
+        by_id[f"__anon_{hash(ln)}"] = ln
 
     for ent in new_entries:
         by_id[ent["row_id"]] = ent["row"]
