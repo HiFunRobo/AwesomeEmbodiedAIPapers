@@ -1,8 +1,13 @@
 |Year|Org.|Acronym|Paper|Project|GitHub|Comments|
 |----|----|-------|-----|-------|------|------|
+|2021.08|  | WMILF | [What Matters in Learning from Offline Human Demonstrations for Robot Manipulation](https://arxiv.org/abs/2108.03298) |[![link](https://img.shields.io/badge/Website-9cf)](https://arise-initiative.github.io/robomimic-web) | | |
+|2022.03|  | QDQFR | [Quantifying Demonstration Quality for Robot Learning and Generalization](https://arxiv.org/abs/2203.13843) | | | |
+|2022.10|  | ECDFM | [Eliciting Compatible Demonstrations for Multi-Human Imitation Learning](https://arxiv.org/abs/2210.08073) | | | |
 |2023.06|  | DQIIL | [Data Quality in Imitation Learning](https://arxiv.org/abs/2306.02437) | | | |
+|2023.10|  | Learning to Discern | [Learning to Discern: Imitating Heterogeneous Human Demonstrations with Preference and Representation Learning](https://arxiv.org/abs/2310.14196) | | | |
 |2024.08|  | FlowRetrieval | [FlowRetrieval: Flow-Guided Data Retrieval for Few-Shot Imitation Learning](https://arxiv.org/abs/2408.16944) |[![link](https://img.shields.io/badge/Website-9cf)](https://flow-retrieval.github.io) |[![GitHub](https://img.shields.io/github/stars/lihenglin/bridge_training_code)](https://github.com/lihenglin/bridge_training_code) | |
 |2024.12|  | STRAP | [STRAP: Robot Sub-Trajectory Retrieval for Augmented Policy Learning](https://arxiv.org/abs/2412.15182) |[![link](https://img.shields.io/badge/Website-9cf)](https://weirdlabuw.github.io/strap) |[![GitHub](https://img.shields.io/github/stars/WEIRDLabUW/STRAP)](https://github.com/WEIRDLabUW/STRAP) | |
+|2024.12|  | Consistency Matters | [Consistency Matters: Defining Demonstration Data Quality Metrics in Robot Learning from Demonstration](https://arxiv.org/abs/2412.14309) | | | |
 |2025.02|  | RDCWM | [Robot Data Curation with Mutual Information Estimators](https://arxiv.org/abs/2502.08623) |[![link](https://img.shields.io/badge/Website-9cf)](https://jhejna.github.io/demonstration-info) |[![GitHub](https://img.shields.io/github/stars/jhejna/demonstration-information)](https://github.com/jhejna/demonstration-information) | |
 |2025.03|  | CDUOE | [Curating Demonstrations using Online Experience](https://arxiv.org/abs/2503.03707) | | | |
 |2025.05|  | DataMIL | [DataMIL: Selecting Data for Robot Imitation Learning with Datamodels](https://arxiv.org/abs/2505.09603) | |[![GitHub](https://img.shields.io/github/stars/UT-Austin-RobIn/datamil)](https://github.com/UT-Austin-RobIn/datamil) | |
