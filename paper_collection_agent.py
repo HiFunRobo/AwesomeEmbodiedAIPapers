@@ -20,6 +20,7 @@ GitHub 输入：从仓库描述、homepage、README 中解析 arXiv；若找不�
   python paper_collection_agent.py -i input.json -o collection.md
   python paper_collection_agent.py URL1 URL2 -o ref.md
   python paper_collection_agent.py URL1 URL2 -o ref.md --no-merge   # 覆盖已有文件，不合并
+  python paper_collection_agent.py -all                             # 处理 input/*.json → collection_list/*.md
 """
 
 from __future__ import annotations
@@ -52,16 +53,30 @@ TABLE_HEADER = (
     "|----|----|-------|-----|-------|------|------|"
 )
 
-DEFAULT_INPUT_JSON = Path(__file__).resolve().parent / "input" / "simgen.json"
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_INPUT_JSON = SCRIPT_DIR / "input" / "simgen.json"
+DEFAULT_INPUT_DIR = SCRIPT_DIR / "input"
+DEFAULT_OUTPUT_DIR = SCRIPT_DIR / "collection_list"
 
 
 # ---------------------------------------------------------------------------
 # arXiv ID
 # ---------------------------------------------------------------------------
 
+def normalize_url(url: str) -> str:
+    """用于去重的 URL 规范化（去尾斜杠、小写 scheme/host）。"""
+    u = url.strip().rstrip("/")
+    m = re.match(r"(https?)://([^/]+)(.*)", u, re.I)
+    if m:
+        scheme, host, path = m.group(1).lower(), m.group(2).lower(), m.group(3)
+        return f"{scheme}://{host}{path.rstrip('/')}"
+    return u.lower()
+
+
 def parse_arxiv_id(raw: str) -> Optional[str]:
     patterns = [
         r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})(?:\.pdf)?",
+        r"arxiv\.org/html/(\d{4}\.\d{4,5})(?:v\d+)?",
         r"arxiv\s*:\s*(\d{4}\.\d{4,5})",
         r"^(\d{4}\.\d{4,5})$",
     ]
@@ -160,7 +175,15 @@ def github_repo_key_from_markdown_row(row_line: str) -> Optional[str]:
 
 
 def paper_url_for_row(arxiv_id: str, original: str) -> str:
-    """若用户给的是 pdf 链接则输出 pdf（与 ref.md 常见写法一致，无 .pdf 后缀）。"""
+    """保留用户输入的 arXiv 链接形式（html / pdf / abs）。"""
+    original = original.strip()
+    m_html = re.search(
+        r"(https?://arxiv\.org/html/\d{4}\.\d{4,5}(?:v\d+)?)",
+        original,
+        re.I,
+    )
+    if m_html:
+        return m_html.group(1).rstrip("/")
     if re.search(r"arxiv\.org/pdf/", original, re.I):
         return f"https://arxiv.org/pdf/{arxiv_id}"
     return f"https://arxiv.org/abs/{arxiv_id}"
@@ -523,7 +546,12 @@ def format_project_badge(project_url: str) -> str:
     return f"[![link](https://img.shields.io/badge/Website-9cf)]({project_url})"
 
 
-def collect_one(raw_input_url: str, *, use_api: bool = False) -> dict:
+def collect_one(
+    raw_input_url: str,
+    *,
+    use_api: bool = False,
+    github_search: bool = False,
+) -> dict:
     """返回一条表格行所需字段 + row_id 用于去重与排序（arXiv 输入）。"""
     arxiv_id = parse_arxiv_id(raw_input_url)
     if not arxiv_id:
@@ -542,10 +570,11 @@ def collect_one(raw_input_url: str, *, use_api: bool = False) -> dict:
     # Org.：默认留空（避免与 Acronym 混淆；可在生成的 md 中手工填写）
     org = ""
 
-    if not github and project:
-        github = scrape_project_page_for_github(project)
-    if not github:
-        github = search_github(acronym, title, project_url=project)
+    if github_search:
+        if not github and project:
+            github = scrape_project_page_for_github(project)
+        if not github:
+            github = search_github(acronym, title, project_url=project)
 
     paper_href = paper_url_for_row(arxiv_id, raw_input_url)
     paper_link = f"[{title}]({paper_href})"
@@ -563,7 +592,12 @@ def collect_one(raw_input_url: str, *, use_api: bool = False) -> dict:
     }
 
 
-def collect_from_github(raw_input_url: str, *, use_api: bool = False) -> dict:
+def collect_from_github(
+    raw_input_url: str,
+    *,
+    use_api: bool = False,
+    _github_search: bool = False,
+) -> dict:
     """
     GitHub 仓库 URL：从描述 / homepage / README 解析 arXiv；
     若找到论文则 Paper 等与 arXiv 行一致（GitHub 列固定为当前仓库）；
@@ -607,7 +641,7 @@ def collect_from_github(raw_input_url: str, *, use_api: bool = False) -> dict:
             ):
                 project = hp
 
-        paper_href = paper_url_for_row(arxiv_id, f"https://arxiv.org/abs/{arxiv_id}")
+        paper_href = f"https://arxiv.org/abs/{arxiv_id}"
         paper_link = f"[{title}]({paper_href})"
         project_cell = format_project_badge(project) if project else ""
         row = (
@@ -630,16 +664,82 @@ def collect_from_github(raw_input_url: str, *, use_api: bool = False) -> dict:
             if normalize_github_repo_url(hp) != user_github:
                 project_cell = format_project_badge(hp)
 
-    paper_link = ""
+    paper_link = f"[{repo_name}]({user_github})"
     row = f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
     return {"row_id": row_key, "year_month": year_month, "row": row}
 
 
-def collect_entry(raw_input_url: str, *, use_api: bool = False) -> dict:
-    """根据 URL 类型分发：GitHub 仓库或 arXiv。"""
+def _title_from_html(soup: BeautifulSoup) -> str:
+    og = soup.find("meta", property="og:title")
+    if og and og.get("content"):
+        return re.sub(r"\s+", " ", og["content"].strip())
+    if soup.title and soup.title.string:
+        return re.sub(r"\s+", " ", soup.title.string.strip())
+    h1 = soup.find("h1")
+    if h1:
+        return re.sub(r"\s+", " ", h1.get_text(" ", strip=True))
+    return ""
+
+
+def collect_from_web_url(raw_input_url: str) -> dict:
+    """
+    非 arXiv / 非 GitHub 的普通网页：抓取标题与页内链接；
+    Project / GitHub 找不到则留空；Paper 列链接到原始 URL。
+    """
+    url = raw_input_url.strip()
+    resp = requests.get(url, headers=HEADERS, timeout=25)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
+    title = _title_from_html(soup) or url
+    acronym = infer_acronym(title)
+
+    links = _extract_links_from_abs_soup(soup)
+    github = links.get("github")
+    project = links.get("project")
+    if project and normalize_url(project) == normalize_url(url):
+        project = None
+
+    org = ""
+    year_month = "9999.99"
+    for meta_name in ("article:published_time", "citation_publication_date", "date"):
+        meta = soup.find("meta", attrs={"name": meta_name}) or soup.find(
+            "meta", property=meta_name
+        )
+        if meta and meta.get("content"):
+            content = meta["content"].strip()
+            if len(content) >= 7 and content[4] == "-":
+                year_month = content[:7].replace("-", ".")
+                break
+
+    paper_link = f"[{title}]({url})"
+    project_cell = format_project_badge(project) if project else ""
+    github_cell = format_github_badge(github) if github else ""
+    row = (
+        f"|{year_month}| {org} | {acronym} | {paper_link} |{project_cell} |{github_cell} | |"
+    )
+    return {
+        "row_id": f"url:{normalize_url(url)}",
+        "year_month": year_month,
+        "row": row,
+    }
+
+
+def collect_entry(
+    raw_input_url: str,
+    *,
+    use_api: bool = False,
+    github_search: bool = False,
+) -> dict:
+    """根据 URL 类型分发：GitHub 仓库、arXiv 或普通网页。"""
     if parse_github_repo_url(raw_input_url):
-        return collect_from_github(raw_input_url, use_api=use_api)
-    return collect_one(raw_input_url, use_api=use_api)
+        return collect_from_github(
+            raw_input_url, use_api=use_api, _github_search=github_search
+        )
+    if parse_arxiv_id(raw_input_url):
+        return collect_one(raw_input_url, use_api=use_api, github_search=github_search)
+    if re.match(r"https?://", raw_input_url.strip(), re.I):
+        return collect_from_web_url(raw_input_url)
+    raise ValueError(f"无法识别的链接: {raw_input_url!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -648,8 +748,64 @@ def collect_entry(raw_input_url: str, *, use_api: bool = False) -> dict:
 
 def arxiv_id_from_markdown_row(row_line: str) -> Optional[str]:
     """从表格数据行中提取 arxiv.org/abs 或 pdf 链接里的 ID。"""
-    m = re.search(r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})", row_line)
+    m = re.search(r"arxiv\.org/(?:abs|pdf|html)/(\d{4}\.\d{4,5})", row_line)
     return m.group(1) if m else None
+
+
+def paper_href_from_markdown_row(row_line: str) -> Optional[str]:
+    """从 Paper 列（首个 markdown 链接）提取 href。"""
+    parts = row_line.split("|")
+    if len(parts) >= 5:
+        paper_col = parts[4]
+    else:
+        paper_col = row_line
+    m = re.search(r"\[[^\]]*\]\(([^)]+)\)", paper_col)
+    if m:
+        return m.group(1).strip()
+    return None
+
+
+def input_url_key(raw_url: str) -> str:
+    """输入 URL 的去重键（与 existing_row_keys 一致）。"""
+    raw = raw_url.strip()
+    arxiv_id = parse_arxiv_id(raw)
+    if arxiv_id:
+        return f"arxiv:{arxiv_id}"
+    gh = parse_github_repo_url(raw)
+    if gh:
+        return f"gh:{github_row_key(gh[0], gh[1])}"
+    if re.match(r"https?://", raw, re.I):
+        return f"url:{normalize_url(raw)}"
+    return f"raw:{raw}"
+
+
+def existing_row_keys(content: str) -> set[str]:
+    """从已有 md 表格行收集全部去重键。"""
+    keys: set[str] = set()
+    _, rows = split_table_lines(content)
+    for ln in rows:
+        aid = arxiv_id_from_markdown_row(ln)
+        if aid:
+            keys.add(f"arxiv:{aid}")
+        ghk = github_repo_key_from_markdown_row(ln)
+        if ghk:
+            keys.add(f"gh:{ghk}")
+        href = paper_href_from_markdown_row(ln)
+        if href:
+            keys.add(f"url:{normalize_url(href)}")
+    return keys
+
+
+def dedupe_urls(urls: list[str]) -> list[str]:
+    """输入列表去重（按 input_url_key），保持顺序。"""
+    seen: set[str] = set()
+    out: list[str] = []
+    for u in urls:
+        key = input_url_key(u)
+        if key not in seen:
+            seen.add(key)
+            out.append(u)
+    return out
 
 
 def parse_year_sort_key(year_cell: str) -> tuple:
@@ -740,6 +896,138 @@ def load_urls_from_json(path: Path) -> list[str]:
     raise ValueError("JSON 应为 {\"papers\": [\"url\", ...]} 或 URL 数组")
 
 
+def write_merged_output(
+    out_path: Path,
+    existing: str,
+    entries: list[dict],
+    *,
+    merge: bool,
+    sort_asc: bool,
+) -> int:
+    """合并并写入 md，返回表格数据行数。"""
+    if merge and existing.strip():
+        body = merge_and_sort(existing, entries, sort_ascending=sort_asc)
+    else:
+        entries.sort(
+            key=lambda e: parse_year_sort_key(e["year_month"]),
+            reverse=not sort_asc,
+        )
+        body = TABLE_HEADER + "\n" + "\n".join(e["row"] for e in entries) + "\n"
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(body, encoding="utf-8")
+    return len(
+        [
+            ln
+            for ln in body.splitlines()
+            if ln.startswith("|")
+            and not ln.startswith("|Year|")
+            and not ln.startswith("|----")
+        ]
+    )
+
+
+def process_json_file(
+    json_path: Path,
+    md_path: Path,
+    *,
+    merge: bool,
+    sort_asc: bool,
+    use_api: bool,
+    github_search: bool,
+) -> tuple[int, int, int]:
+    """
+    处理单个 JSON → 同名 md。
+    返回 (跳过数, 本次新增数, 表格总行数)。
+    """
+    urls = dedupe_urls(load_urls_from_json(json_path))
+    existing = md_path.read_text(encoding="utf-8") if md_path.is_file() else ""
+    known = existing_row_keys(existing) if existing.strip() else set()
+
+    pending: list[str] = []
+    skipped = 0
+    for raw in urls:
+        if input_url_key(raw) in known:
+            skipped += 1
+            print(f"  [跳过] 已存在: {raw}")
+            continue
+        pending.append(raw)
+
+    if not pending:
+        print(f"  [•] 无新条目（共 {len(urls)} 条输入，跳过 {skipped} 条）")
+        if existing.strip():
+            data_rows = len(
+                [
+                    ln
+                    for ln in existing.splitlines()
+                    if ln.startswith("|")
+                    and not ln.startswith("|Year|")
+                    and not ln.startswith("|----")
+                ]
+            )
+            return skipped, 0, data_rows
+        return skipped, 0, 0
+
+    entries: list[dict] = []
+    for raw in pending:
+        print(f"  [•] {raw}")
+        try:
+            ent = collect_entry(raw, use_api=use_api, github_search=github_search)
+            entries.append(ent)
+            known.add(ent["row_id"])
+            known.add(input_url_key(raw))
+        except Exception as e:
+            print(f"      失败: {e}", file=sys.stderr)
+
+    if not entries:
+        return skipped, 0, 0
+
+    data_rows = write_merged_output(
+        md_path,
+        existing,
+        entries,
+        merge=merge,
+        sort_asc=sort_asc,
+    )
+    return skipped, len(entries), data_rows
+
+
+def run_all_mode(
+    input_dir: Path,
+    output_dir: Path,
+    *,
+    merge: bool,
+    sort_asc: bool,
+    use_api: bool,
+    github_search: bool,
+) -> None:
+    json_files = sorted(input_dir.glob("*.json"))
+    if not json_files:
+        print(f"错误: {input_dir} 下没有 .json 文件。", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"[*] -all 模式: {len(json_files)} 个 JSON → {output_dir}/")
+    total_new = 0
+    for json_path in json_files:
+        md_path = output_dir / f"{json_path.stem}.md"
+        print(f"\n=== {json_path.name} → {md_path.name} ===")
+        skipped, added, rows = process_json_file(
+            json_path,
+            md_path,
+            merge=merge,
+            sort_asc=sort_asc,
+            use_api=use_api,
+            github_search=github_search,
+        )
+        if added:
+            print(f"  [✓] 新增 {added} 条，跳过 {skipped} 条，表格共 {rows} 行")
+        elif skipped and rows:
+            print(f"  [✓] 已全部收录（跳过 {skipped} 条，表格共 {rows} 行）")
+        total_new += added
+
+    print(f"\n[✓] -all 完成，共新增 {total_new} 条。")
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -784,7 +1072,33 @@ def main() -> None:
         action="store_true",
         help="优先使用 export.arxiv.org API（默认仅解析 abs 页面，更稳定）",
     )
+    parser.add_argument(
+        "-all",
+        "--all",
+        action="store_true",
+        dest="process_all",
+        help=f"处理 {DEFAULT_INPUT_DIR}/ 下全部 .json，"
+        f"写入 {DEFAULT_OUTPUT_DIR}/ 同名 .md；已收录条目跳过",
+    )
+    parser.add_argument(
+        "--github-search",
+        action="store_true",
+        help="在页面未找到 GitHub 时，尝试 GitHub Search API 猜测仓库（默认不启用）",
+    )
     args = parser.parse_args()
+
+    sort_asc = not args.desc
+
+    if args.process_all:
+        run_all_mode(
+            DEFAULT_INPUT_DIR,
+            DEFAULT_OUTPUT_DIR,
+            merge=args.merge,
+            sort_asc=sort_asc,
+            use_api=args.use_arxiv_api,
+            github_search=args.github_search,
+        )
+        return
 
     urls: list[str] = []
     if args.input_json is not None:
@@ -796,13 +1110,7 @@ def main() -> None:
             parser.error("请传入至少一个 URL，或使用 -i 指定 JSON（且默认 input/simgen.json 不存在）")
     urls.extend(args.urls)
 
-    # 去重保持顺序
-    seen = set()
-    uniq_urls = []
-    for u in urls:
-        if u not in seen:
-            seen.add(u)
-            uniq_urls.append(u)
+    uniq_urls = dedupe_urls(urls)
 
     if not uniq_urls:
         print("错误: 没有可用的论文链接。", file=sys.stderr)
@@ -812,32 +1120,31 @@ def main() -> None:
     for raw in uniq_urls:
         print(f"[•] {raw}")
         try:
-            entries.append(collect_entry(raw, use_api=args.use_arxiv_api))
+            entries.append(
+                collect_entry(
+                    raw,
+                    use_api=args.use_arxiv_api,
+                    github_search=args.github_search,
+                )
+            )
         except Exception as e:
             print(f"    失败: {e}", file=sys.stderr)
 
     if not entries:
         sys.exit(1)
 
-    sort_asc = not args.desc
     out_path = args.output
     existing = ""
     if args.merge and out_path.is_file():
         existing = out_path.read_text(encoding="utf-8")
 
-    if args.merge and existing.strip():
-        body = merge_and_sort(existing, entries, sort_ascending=sort_asc)
-    else:
-        # 仅本次条目排序
-        entries.sort(
-            key=lambda e: parse_year_sort_key(e["year_month"]),
-            reverse=not sort_asc,
-        )
-        body = TABLE_HEADER + "\n" + "\n".join(e["row"] for e in entries) + "\n"
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(body, encoding="utf-8")
-    data_rows = len([ln for ln in body.splitlines() if ln.startswith("|") and not ln.startswith("|Year|") and not ln.startswith("|----")])
+    data_rows = write_merged_output(
+        out_path,
+        existing,
+        entries,
+        merge=args.merge,
+        sort_asc=sort_asc,
+    )
     print(f"[✓] 已写入 {out_path}（本次处理 {len(entries)} 条；表格共 {data_rows} 行数据）")
 
 
