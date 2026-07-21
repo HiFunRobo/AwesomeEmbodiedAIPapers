@@ -795,19 +795,35 @@ def input_url_key(raw_url: str) -> str:
     return f"raw:{raw}"
 
 
+def github_repo_in_markdown(existing: str, owner: str, repo: str) -> bool:
+    """已有 md 的 GitHub 列或 Paper 列是否已包含该仓库。"""
+    pat = re.compile(
+        rf"github\.com/{re.escape(owner)}/{re.escape(repo)}\b",
+        re.IGNORECASE,
+    )
+    return bool(pat.search(existing))
+
+
 def existing_row_keys(content: str) -> set[str]:
-    """从已有 md 表格行收集全部去重键。"""
+    """从已有 md 表格行收集全部去重键（每行只取一个主键：arxiv > gh > url）。"""
     keys: set[str] = set()
     _, rows = split_table_lines(content)
     for ln in rows:
         aid = arxiv_id_from_markdown_row(ln)
         if aid:
             keys.add(f"arxiv:{aid}")
+            continue
         ghk = github_repo_key_from_markdown_row(ln)
         if ghk:
             keys.add(f"gh:{ghk}")
+            continue
         href = paper_href_from_markdown_row(ln)
         if href:
+            if "github.com" in href.lower():
+                gh = parse_github_repo_url(href)
+                if gh:
+                    keys.add(f"gh:{github_row_key(gh[0], gh[1])}")
+                    continue
             keys.add(f"url:{normalize_url(href)}")
     return keys
 
@@ -882,6 +898,11 @@ def merge_and_sort(
             continue
         href = paper_href_from_markdown_row(ln)
         if href:
+            if "github.com" in href.lower():
+                gh = parse_github_repo_url(href)
+                if gh:
+                    by_id[f"gh:{github_row_key(gh[0], gh[1])}"] = ln
+                    continue
             by_id[f"url:{normalize_url(href)}"] = ln
             continue
         by_id[f"__anon_{hash(ln)}"] = ln
@@ -967,9 +988,16 @@ def process_json_file(
     pending: list[str] = []
     skipped = 0
     for raw in urls:
-        if input_url_key(raw) in known:
+        key = input_url_key(raw)
+        if key in known:
             skipped += 1
             print(f"  [跳过] 已存在: {raw}")
+            continue
+        gh = parse_github_repo_url(raw)
+        if gh and existing.strip() and github_repo_in_markdown(existing, gh[0], gh[1]):
+            skipped += 1
+            known.add(key)
+            print(f"  [跳过] 仓库已收录: {raw}")
             continue
         pending.append(raw)
 
