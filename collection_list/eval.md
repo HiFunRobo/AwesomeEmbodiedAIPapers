@@ -1,6 +1,9 @@
 |Year|Org.|Acronym|Paper|Project|GitHub|Comments|
 |----|----|-------|-----|-------|------|------|
+|2025.03|  | ATFEG | [A Taxonomy for Evaluating Generalist Robot Manipulation Policies](https://arxiv.org/html/2503.01238) |[![link](https://img.shields.io/badge/Website-9cf)](http://stargen-taxonomy.github.io) | | |
 |2025.05|  | WorldEval | [WorldEval: World Model as Real-World Robot Policies Evaluator](https://arxiv.org/abs/2505.19017) |[![link](https://img.shields.io/badge/Website-9cf)](https://worldeval.github.io) |[![GitHub](https://img.shields.io/github/stars/liyaxuanliyaxuan/Worldeval)](https://github.com/liyaxuanliyaxuan/Worldeval) | |
 |2025.06|  | WorldGym | [WorldGym: World Model as An Environment for Policy Evaluation](https://arxiv.org/abs/2506.00613) |[![link](https://img.shields.io/badge/Website-9cf)](https://world-model-eval.github.io) |[![GitHub](https://img.shields.io/github/stars/simon-yoo/Syoo122122.github.worldgym)](https://github.com/simon-yoo/Syoo122122.github.worldgym) | |
 |2025.11|  | SPEWV | [Scalable Policy Evaluation with Video World Models](https://arxiv.org/abs/2511.11520) | | | |
 |2026.03|  | IWSFR | [Interactive World Simulator for Robot Policy Training and Evaluation](https://arxiv.org/abs/2603.08546) | | | |
+|2026.04|  | LARY | [LARY: A Latent Action Representation Yielding Benchmark for Generalizable Vision-to-Action Alignment](https://arxiv.org/html/2604.11689v1) |[![link](https://img.shields.io/badge/Website-9cf)](https://meituan-longcat.github.io/LARYBench) |[![GitHub](https://img.shields.io/github/stars/meituan-longcat/LARYBench)](https://github.com/meituan-longcat/LARYBench) | |
+|9999.99|  | RRARP | [Runway Research | Accelerating Robot Policy Evaluation with General World Models](https://runwayml.com/research/accelerating-robot-policy-evaluation) |[![link](https://img.shields.io/badge/Website-9cf)](https://veo-robotics.github.io) | | |
