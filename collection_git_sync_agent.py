@@ -34,6 +34,27 @@ GIT_BRANCH = os.environ.get("GIT_BRANCH", "")  # 空则自动检测当前分支
 
 _timer: threading.Timer | None = None
 _timer_lock = threading.Lock()
+_push_cooldown_until: float = 0.0
+_AUTH_COOLDOWN_SEC = float(os.environ.get("SYNC_AUTH_COOLDOWN_SEC", "300"))
+
+# Cursor/VS Code 注入的 Git 凭证变量会走 vscode-git-*.sock，后台子进程连不上
+_IDE_GIT_ENV_PREFIXES = (
+    "GIT_ASKPASS",
+    "VSCODE_GIT_",
+    "CURSOR_GIT_",
+)
+
+
+def _git_env() -> dict[str, str]:
+    """子进程 Git 环境：去掉 IDE 凭证 socket，回退到 osxkeychain / SSH agent。"""
+    env = os.environ.copy()
+    for key in list(env):
+        if any(key == p or key.startswith(p) for p in _IDE_GIT_ENV_PREFIXES):
+            env.pop(key, None)
+    # 避免 Cursor 代理干扰 git 直连 GitHub
+    for proxy_key in ("GIT_HTTP_PROXY", "GIT_HTTPS_PROXY", "ALL_PROXY", "HTTP_PROXY", "HTTPS_PROXY"):
+        env.pop(proxy_key, None)
+    return env
 
 
 def _run_git(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess:
@@ -42,6 +63,38 @@ def _run_git(args: list[str], *, check: bool = True) -> subprocess.CompletedProc
         capture_output=True,
         text=True,
         check=check,
+        env=_git_env(),
+    )
+
+
+def _is_auth_error(stderr: str) -> bool:
+    s = stderr.lower()
+    return any(
+        x in s
+        for x in (
+            "authentication failed",
+            "invalid credentials",
+            "permission denied",
+            "no anonymous write access",
+            "could not read from remote",
+            "vscode-git-",
+        )
+    )
+
+
+def _print_auth_help() -> None:
+    remote = _run_git(["remote", "get-url", GIT_REMOTE], check=False).stdout.strip()
+    print(
+        "[sync] GitHub 认证失败。常见修复：\n"
+        "  1) 在系统终端（非 Cursor）执行一次:\n"
+        f"       cd {REPO_ROOT} && git push {GIT_REMOTE} {_detect_branch()}\n"
+        "     按提示登录，凭证会写入 macOS 钥匙串 (osxkeychain)。\n"
+        "  2) 或改用 SSH remote:\n"
+        "       git remote set-url origin git@github.com:HiFunRobo/AwesomeEmbodiedAIPapers.git\n"
+        "  3) 或安装 GitHub CLI 后: gh auth login\n"
+        f"  当前 remote: {remote or '(未设置)'}\n"
+        f"  认证失败后将暂停自动 push {_AUTH_COOLDOWN_SEC:.0f}s，避免重复报错。",
+        file=sys.stderr,
     )
 
 
@@ -60,6 +113,11 @@ def _has_changes() -> bool:
 
 
 def _push_to_github() -> None:
+    global _push_cooldown_until
+
+    if time.time() < _push_cooldown_until:
+        return
+
     if not (REPO_ROOT / ".git").is_dir():
         print("[sync] 错误: 尚未初始化 Git。请在 awesome_papers 下执行: git init && git remote add origin <url>", file=sys.stderr)
         return
@@ -88,7 +146,11 @@ def _push_to_github() -> None:
 
     p = _run_git(["push", GIT_REMOTE, branch], check=False)
     if p.returncode != 0:
-        print(f"[sync] git push 失败:\n{p.stderr or p.stdout}", file=sys.stderr)
+        err = p.stderr or p.stdout
+        print(f"[sync] git push 失败:\n{err}", file=sys.stderr)
+        if _is_auth_error(err):
+            _push_cooldown_until = time.time() + _AUTH_COOLDOWN_SEC
+            _print_auth_help()
         return
 
     print(f"[sync] 已推送 {GIT_REMOTE}/{branch}")
