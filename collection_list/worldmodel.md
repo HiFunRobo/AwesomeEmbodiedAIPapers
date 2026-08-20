@@ -8,3 +8,4 @@
 |2026.02|  | WAMAZ | [World Action Models are Zero-shot Policies](https://arxiv.org/abs/2602.15922) |[![link](https://img.shields.io/badge/Website-9cf)](https://dreamzero0.github.io/) |[![GitHub](https://img.shields.io/github/stars/dreamzero0/dreamzero)](https://github.com/dreamzero0/dreamzero) | |
 |2026.02|  | WoVR | [WoVR: World Models as Reliable Simulators for Post-Training VLA Policies with RL](https://arxiv.org/abs/2602.13977) | |[![GitHub](https://img.shields.io/github/stars/ProjectMimer/WoVR)](https://github.com/ProjectMimer/WoVR) | |
 |2026.04|  | Hi-WM | [Hi-WM: Human-in-the-World-Model for Scalable Robot Post-Training](https://arxiv.org/abs/2604.21741) |[![link](https://img.shields.io/badge/Website-9cf)](https://hi-wm.github.io/) | | |
+|2026.07|  | RWMVR | [Robot-Factored World Models via Robot Rendering](https://arxiv.org/abs/2607.22535) |[![link](https://img.shields.io/badge/Website-9cf)](https://bjkim95.github.io/rofacto) | | |

@@ -1,5 +1,6 @@
 |Year|Org.|Acronym|Paper|Project|GitHub|Comments|
 |----|----|-------|-----|-------|------|------|
+|2024.08|  | Robo-GS | [Robo-GS: A Physics Consistent Spatial-Temporal Model for Robotic Arm with Hybrid Representation](https://arxiv.org/abs/2408.14873) | | | |
 |2024.11|  | RoboGSim | [RoboGSim: A Real2Sim2Real Robotic Gaussian Splatting Simulator](https://arxiv.org/abs/2411.11839) |[![link](https://img.shields.io/badge/Website-9cf)](https://robogsim.github.io) |[![GitHub](https://img.shields.io/github/stars/eliahuhorwitz/Academic-project-page-template)](https://github.com/eliahuhorwitz/Academic-project-page-template) | |
 |2025.02|  | Re$^3$Sim | [Re$^3$Sim: Generating High-Fidelity Simulation Data via 3D-Photorealistic Real-to-Sim for Robotic Manipulation](https://arxiv.org/abs/2502.08645) |[![link](https://img.shields.io/badge/Website-9cf)](http://xshenhan.github.io/Re3Sim) |[![GitHub](https://img.shields.io/github/stars/OpenRobotLab/Re3Sim)](https://github.com/OpenRobotLab/Re3Sim) | |
 |2025.10|  | Phys2Real | [Phys2Real: Fusing VLM Priors with Interactive Online Adaptation for Uncertainty-Aware Sim-to-Real Manipulation](https://arxiv.org/abs/2510.11689) |[![link](https://img.shields.io/badge/Website-9cf)](https://phys2real.github.io) |[![GitHub](https://img.shields.io/github/stars/phys2real/phys2real)](http://github.com/phys2real/phys2real) | |
