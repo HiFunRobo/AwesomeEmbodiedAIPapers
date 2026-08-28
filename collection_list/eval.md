@@ -13,5 +13,6 @@
 |2026.04|  | LARY | [LARY: A Latent Action Representation Yielding Benchmark for Generalizable Vision-to-Action Alignment](https://arxiv.org/html/2604.11689v1) |[![link](https://img.shields.io/badge/Website-9cf)](https://meituan-longcat.github.io/LARYBench) |[![GitHub](https://img.shields.io/github/stars/meituan-longcat/LARYBench)](https://github.com/meituan-longcat/LARYBench) | |
 |2026.07|  | RSIBench-Data | [RSIBench-Data: Benchmarking Data-Centric Research for Recursive Self-Improvement](https://arxiv.org/abs/2607.25886) | |[![GitHub](https://img.shields.io/github/stars/evolvent-ai/RSIBench-Data)](https://github.com/evolvent-ai/RSIBench-Data) | |
 |2026.08|  | WorldSimProbe | [WorldSimProbe: Diagnosing Simulator Faithfulness in Action-Conditioned World Models for Embodied Manipulation](https://arxiv.org/html/2608.09298v1) | | | |
+|2026.08|  | RoboSynChallenge | [RoboSynChallenge: Mastering Real-World Dexterity via Generalizing Synthesized Manipulation Skills](https://arxiv.org/html/2608.12416) | | | |
 |9999.99|  | RRARP | [Runway Research \| Accelerating Robot Policy Evaluation with General World Models](https://runwayml.com/research/accelerating-robot-policy-evaluation) | | | |
 |9999.99|  | RoboColiseum | [RoboColiseum](https://robocoliseum.ai/) | | | |
